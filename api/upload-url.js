@@ -29,13 +29,13 @@ module.exports = async function handler(req, res) {
             'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'
           ],
           maximumSizeInBytes: 20 * 1024 * 1024, // 20MB
-          addRandomSuffix: true,
+          addRandomSuffix: false,
         };
       },
     });
     return res.json(jsonResponse);
   } catch (error) {
     console.error('Upload URL error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message, detail: String(error) });
   }
 };
