@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
     // ── Modo 2: Upload de imagen/video pequeño via base64 (ya funcionaba) ──
     const { fileName, contentType, data } = body;
     if (!fileName || !contentType || !data) {
-      return res.status(400).json({ error: 'Faltan campos: fileName, contentType, data (base64)' });
+      return res.status(400).json({ error: 'Faltan campos: fileName, contentType, data (base64)', v: 2 });
     }
 
     const base64Clean = data.replace(/^data:[^;]+;base64,/, '');
