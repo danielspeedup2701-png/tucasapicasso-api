@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PATCH') {
       if (req.headers.authorization !== ADMIN_KEY) return res.status(401).json({ error: 'Sin autorización' });
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const { id, vendida, montoVenta, comentario } = body;
+      const { id, vendida, montoVenta, comentario, compradorWhatsapp } = body;
       if (!id) return res.status(400).json({ error: 'Falta id' });
 
       const lista = await leerActividad();
@@ -87,6 +87,7 @@ module.exports = async function handler(req, res) {
       if (vendida !== undefined) lista[idx].vendida = vendida;
       if (montoVenta !== undefined) lista[idx].montoVenta = montoVenta;
       if (comentario !== undefined) lista[idx].comentario = comentario;
+      if (compradorWhatsapp !== undefined) lista[idx].compradorWhatsapp = compradorWhatsapp;
 
       await guardarActividad(lista);
       return res.json({ ok: true });
