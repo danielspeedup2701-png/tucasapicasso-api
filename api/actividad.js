@@ -19,16 +19,15 @@ async function guardarActividad(lista) {
   });
 }
 
-// Buscar nombre del vendedor por codigo
-async function getNombreVendedor(codigo) {
+// Buscar vendedor completo por codigo (nombre + whatsapp)
+async function getVendedor(codigo) {
   try {
     const { blobs } = await list({ prefix: 'vendedores-data.json' });
     if (!blobs.length) return null;
     const latest = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
     const res = await fetch(latest.url + '?t=' + Date.now());
     const lista = await res.json();
-    const v = lista.find(x => x.codigo === String(codigo));
-    return v ? (v.nombre + ' ' + v.apellido).trim() : null;
+    return lista.find(x => x.codigo === String(codigo)) || null;
   } catch (e) { return null; }
 }
 
@@ -51,18 +50,35 @@ module.exports = async function handler(req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
       const { producto, precio, ref, compradorNombre, compradorWhatsapp } = body;
 
+      // Parsear monto base del texto "$ 1.000" -> 1000
+      const precioNum = parseInt(String(precio || '').replace(/[^0-9]/g, ''), 10) || 0;
+      const precioTarjeta       = precioNum;
+      const precioTransferencia = precioNum > 0 ? Math.round(precioNum * 0.8) : 0;
+      const comisionVendedor    = precioTransferencia > 0 ? Math.round(precioTransferencia * 0.20) : 0;
+
       let vendedorNombre = null;
-      if (ref) vendedorNombre = await getNombreVendedor(ref);
+      let vendedorWhatsapp = null;
+      if (ref) {
+        const v = await getVendedor(ref);
+        if (v) {
+          vendedorNombre   = (v.nombre + ' ' + v.apellido).trim();
+          vendedorWhatsapp = String(v.whatsapp || '').replace(/\D/g, '');
+        }
+      }
 
       const evento = {
         id: Date.now(),
         fecha: new Date().toISOString(),
         producto: producto || 'Desconocido',
         precio: precio || '',
+        precioTarjeta,
+        precioTransferencia,
+        comisionVendedor,
         compradorNombre: compradorNombre || '',
         compradorWhatsapp: compradorWhatsapp || '',
         ref: ref || null,
-        vendedorNombre: vendedorNombre,
+        vendedorNombre,
+        vendedorWhatsapp,
         vendida: false,
         montoVenta: '',
         comentario: ''
