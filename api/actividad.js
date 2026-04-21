@@ -48,10 +48,18 @@ module.exports = async function handler(req, res) {
     // POST — registrar nuevo evento
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const { producto, precio, ref, compradorNombre, compradorWhatsapp } = body;
+      const { producto, precio, ref, compradorNombre, compradorWhatsapp, items, metodoPago } = body;
 
-      // Parsear monto base del texto "$ 1.000" -> 1000
-      const precioNum = parseInt(String(precio || '').replace(/[^0-9]/g, ''), 10) || 0;
+      // Calcular precio total
+      let precioNum = 0;
+      if (items && items.length > 0) {
+        // Carrito multi-producto: sumar todos los ítems
+        precioNum = items.reduce((s, i) => s + (parseInt(i.precioNum) || 0) * (parseInt(i.qty) || 1), 0);
+      } else {
+        // Producto único
+        precioNum = parseInt(String(precio || '').replace(/[^0-9]/g, ''), 10) || 0;
+      }
+
       const precioTarjeta       = precioNum;
       const precioTransferencia = precioNum > 0 ? Math.round(precioNum * 0.8) : 0;
       const comisionVendedor    = precioTransferencia > 0 ? Math.round(precioTransferencia * 0.20) : 0;
@@ -66,20 +74,26 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // Precio de texto para mostrar
+      const precioTexto = precioNum > 0 ? '$' + precioNum.toLocaleString('es-AR') : (precio || '');
+
       const evento = {
         id: Date.now(),
         fecha: new Date().toISOString(),
         producto: producto || 'Desconocido',
-        precio: precio || '',
+        precio: precioTexto,
+        items: items || null,
         precioTarjeta,
         precioTransferencia,
         comisionVendedor,
+        metodoPago: metodoPago || null,
         compradorNombre: compradorNombre || '',
         compradorWhatsapp: compradorWhatsapp || '',
         ref: ref || null,
         vendedorNombre,
         vendedorWhatsapp,
         vendida: false,
+        comisionPagada: false,
         montoVenta: '',
         comentario: ''
       };
@@ -89,21 +103,22 @@ module.exports = async function handler(req, res) {
       return res.json({ ok: true, id: evento.id });
     }
 
-    // PATCH — actualizar evento (marcar vendida, monto, comentario)
+    // PATCH — actualizar evento
     if (req.method === 'PATCH') {
       if (req.headers.authorization !== ADMIN_KEY) return res.status(401).json({ error: 'Sin autorización' });
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const { id, vendida, montoVenta, comentario, compradorWhatsapp } = body;
+      const { id, vendida, montoVenta, comentario, compradorWhatsapp, comisionPagada } = body;
       if (!id) return res.status(400).json({ error: 'Falta id' });
 
       const lista = await leerActividad();
       const idx = lista.findIndex(e => String(e.id) === String(id));
       if (idx === -1) return res.status(404).json({ error: 'No encontrado' });
 
-      if (vendida !== undefined) lista[idx].vendida = vendida;
-      if (montoVenta !== undefined) lista[idx].montoVenta = montoVenta;
-      if (comentario !== undefined) lista[idx].comentario = comentario;
+      if (vendida !== undefined)        lista[idx].vendida = vendida;
+      if (montoVenta !== undefined)     lista[idx].montoVenta = montoVenta;
+      if (comentario !== undefined)     lista[idx].comentario = comentario;
       if (compradorWhatsapp !== undefined) lista[idx].compradorWhatsapp = compradorWhatsapp;
+      if (comisionPagada !== undefined) lista[idx].comisionPagada = comisionPagada;
 
       await guardarActividad(lista);
       return res.json({ ok: true });
