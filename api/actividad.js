@@ -7,9 +7,19 @@ async function leerActividad() {
   try {
     const { blobs } = await list({ prefix: BLOB_KEY });
     if (!blobs.length) return [];
-    const latest = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
-    const res = await fetch(latest.url + '?t=' + Date.now());
-    return await res.json();
+    const ordenados = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+    for (const blob of ordenados) {
+      try {
+        const r = await fetch(blob.url + '?t=' + Date.now());
+        const txt = await r.text();
+        if (!txt) continue;
+        const c = txt.trim().charAt(0);
+        if (c !== '[' && c !== '{') continue;
+        const data = JSON.parse(txt);
+        if (Array.isArray(data)) return data;
+      } catch (_) { continue; }
+    }
+    return [];
   } catch (e) { return []; }
 }
 

@@ -17,11 +17,25 @@ module.exports = async function handler(req, res) {
       if (blobs.length === 0) {
         return res.status(200).json({ productos: [] });
       }
-      // Usar el blob más reciente y evitar cache
-      const latestBlob = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
-      const response = await fetch(latestBlob.url + '?t=' + Date.now());
-      const data = await response.json();
-      return res.status(200).json(data);
+      // Ordenar por fecha descendente y probar cada blob hasta encontrar uno válido
+      const ordenados = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+      for (const blob of ordenados) {
+        try {
+          const response = await fetch(blob.url + '?t=' + Date.now());
+          const txt = await response.text();
+          // Validar que sea JSON y tenga la estructura esperada
+          if (!txt || txt.trim().charAt(0) !== '{' && txt.trim().charAt(0) !== '[') continue;
+          const data = JSON.parse(txt);
+          if (data && (Array.isArray(data.productos) || Array.isArray(data))) {
+            return res.status(200).json(data);
+          }
+        } catch (e) {
+          // Blob corrupto: intentar el siguiente
+          continue;
+        }
+      }
+      // Ningún blob válido — devolver vacío en lugar de error para no romper la web
+      return res.status(200).json({ productos: [], warning: 'Blob corrupto o sin datos válidos' });
     }
 
     // POST: guardar datos (requiere clave admin)

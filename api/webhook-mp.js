@@ -38,6 +38,7 @@ module.exports = async function handler(req, res) {
     const fecha = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
 
     // ═══ 1. WHATSAPP AL ADMIN ═══
+    const referido = orderData.referido || 'directo';
     const mensajeWA = [
       '\u{1F6D2} *NUEVA COMPRA CONFIRMADA*',
       '',
@@ -46,6 +47,7 @@ module.exports = async function handler(req, res) {
       '\u{1F522} *Cantidad:* ' + (orderData.cantidad || 1),
       '\u{1F4B0} *Total:* $' + (total ? total.toLocaleString('es-AR') : 'N/A'),
       '\u{1F4B3} *Metodo:* ' + metodoPago,
+      '\u{1F517} *Origen:* ' + referido,
       '',
       '\u{1F464} *DATOS DEL CLIENTE*',
       '\u{1F4DD} *Nombre:* ' + (orderData.nombre || '') + ' ' + (orderData.apellido || ''),
@@ -109,7 +111,7 @@ module.exports = async function handler(req, res) {
           </div>
           <div style="text-align:center;margin-top:20px;">
             <p style="color:#888;font-size:13px;">Si tenes alguna consulta, escribinos por WhatsApp</p>
-            <a href="https://wa.me/541152200306" style="display:inline-block;background:#25d366;color:white;padding:10px 25px;border-radius:25px;text-decoration:none;font-weight:600;">Contactar por WhatsApp</a>
+            <a href="https://wa.me/5491176508349" style="display:inline-block;background:#25d366;color:white;padding:10px 25px;border-radius:25px;text-decoration:none;font-weight:600;">Contactar por WhatsApp</a>
           </div>
           <p style="text-align:center;color:#bbb;font-size:11px;margin-top:25px;">Tu Casa Picasso &mdash; Equipando hogares con estilo</p>
         </div>
