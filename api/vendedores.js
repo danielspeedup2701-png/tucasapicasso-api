@@ -1,33 +1,18 @@
-const { put, list } = require('@vercel/blob');
+// API: Vendedores referidos.
+// Storage: GitHub (reemplaza Vercel Blob).
+const { leer, guardar } = require('./_gh');
 
 const ADMIN_KEY = 'picasso2026';
-const BLOB_KEY = 'vendedores-data.json';
+const DATA_PATH = 'vendedores-data.json';
 const CODIGO_BASE = 100;
 
 async function leerVendedores() {
-  try {
-    const { blobs } = await list({ prefix: BLOB_KEY });
-    if (!blobs.length) return [];
-    const ordenados = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-    for (const blob of ordenados) {
-      try {
-        const r = await fetch(blob.url + '?t=' + Date.now());
-        const txt = await r.text();
-        if (!txt) continue;
-        const c = txt.trim().charAt(0);
-        if (c !== '[' && c !== '{') continue;
-        const data = JSON.parse(txt);
-        if (Array.isArray(data)) return data;
-      } catch (_) { continue; }
-    }
-    return [];
-  } catch (e) { return []; }
+  const data = await leer(DATA_PATH, []);
+  return Array.isArray(data) ? data : [];
 }
 
 async function guardarVendedores(lista) {
-  await put(BLOB_KEY, JSON.stringify(lista), {
-    access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json'
-  });
+  return guardar(DATA_PATH, lista);
 }
 
 module.exports = async function handler(req, res) {
@@ -39,7 +24,6 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const lista = await leerVendedores();
-      // Consulta por WhatsApp (para que el vendedor recupere su código)
       const waQuery = (req.query && req.query.wa) ? String(req.query.wa).replace(/\D/g,'') : null;
       if (waQuery) {
         const encontrado = lista.find(v => String(v.whatsapp).replace(/\D/g,'') === waQuery);
@@ -48,7 +32,6 @@ module.exports = async function handler(req, res) {
         }
         return res.json({ ok: false, error: 'No encontrado' });
       }
-      // Admin: ver lista completa
       if (req.headers.authorization === ADMIN_KEY) {
         return res.json({ ok: true, vendedores: lista });
       }
@@ -62,12 +45,10 @@ module.exports = async function handler(req, res) {
 
       const lista = await leerVendedores();
 
-      // Verificar duplicado por WhatsApp (si se proporcionó)
       if (whatsapp) {
         const waNorm = String(whatsapp).replace(/\D/g, '');
         const existente = lista.find(v => String(v.whatsapp).replace(/\D/g, '') === waNorm);
         if (existente) {
-          // Ya registrado — devolver datos existentes sin crear uno nuevo
           return res.json({
             ok: true,
             yaRegistrado: true,
