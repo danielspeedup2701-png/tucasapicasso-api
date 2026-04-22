@@ -4,7 +4,7 @@ const { leer, guardar } = require('./_gh');
 
 const ADMIN_KEY = 'picasso2026';
 const DATA_PATH = 'vendedores-data.json';
-const CODIGO_BASE = 100;
+const CODIGO_BASE = 119; // primer nuevo vendedor queda con código 120
 
 async function leerVendedores() {
   const data = await leer(DATA_PATH, []);
