@@ -25,7 +25,7 @@ async function getVendedor(codigo) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -47,8 +47,8 @@ module.exports = async function handler(req, res) {
         precioNum = parseInt(String(precio || '').replace(/[^0-9]/g, ''), 10) || 0;
       }
 
-      // Precio base (lo que ingresa el admin) = precio transferencia.
-      // Tarjeta tiene 25% de recargo. Comisión vendedor = 20% del precio transferencia.
+      // Precio base (lo que ingresa el admin) = precio transferencia (con 25% de descuento).
+      // Tarjeta = precio lista (base * 1.25). Comisión vendedor = 20% del precio transferencia.
       const precioTransferencia = precioNum;
       const precioTarjeta       = precioNum > 0 ? Math.round(precioNum * 1.25) : 0;
       const comisionVendedor    = precioTransferencia > 0 ? Math.round(precioTransferencia * 0.20) : 0;
@@ -80,6 +80,8 @@ module.exports = async function handler(req, res) {
         ref: ref || null,
         vendedorNombre,
         vendedorWhatsapp,
+        // Estado de operación: 'pendiente' (abierta), 'pagada' (cerrada/concretada), 'cancelada'
+        estado: 'pendiente',
         vendida: false,
         comisionPagada: false,
         montoVenta: '',
@@ -94,7 +96,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PATCH') {
       if (req.headers.authorization !== ADMIN_KEY) return res.status(401).json({ error: 'Sin autorización' });
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const { id, vendida, montoVenta, comentario, compradorWhatsapp, comisionPagada } = body;
+      const { id, vendida, montoVenta, comentario, compradorWhatsapp, comisionPagada, estado, metodoPago, precioTransferencia } = body;
       if (!id) return res.status(400).json({ error: 'Falta id' });
 
       const lista = await leerActividad();
@@ -106,8 +108,37 @@ module.exports = async function handler(req, res) {
       if (comentario !== undefined)        lista[idx].comentario = comentario;
       if (compradorWhatsapp !== undefined) lista[idx].compradorWhatsapp = compradorWhatsapp;
       if (comisionPagada !== undefined)    lista[idx].comisionPagada = comisionPagada;
+      if (metodoPago !== undefined)        lista[idx].metodoPago = metodoPago;
+
+      // Editar monto de transferencia (recalcula tarjeta +25% y comisión 20%)
+      if (precioTransferencia !== undefined) {
+        const n = parseInt(String(precioTransferencia).replace(/[^0-9]/g,''),10) || 0;
+        lista[idx].precioTransferencia = n;
+        lista[idx].precioTarjeta       = n > 0 ? Math.round(n * 1.25) : 0;
+        lista[idx].comisionVendedor    = n > 0 ? Math.round(n * 0.20) : 0;
+        lista[idx].precio              = n > 0 ? '$' + n.toLocaleString('es-AR') : lista[idx].precio;
+      }
+
+      // Estado de la operación: 'pendiente' | 'pagada' | 'cancelada'
+      if (estado !== undefined) {
+        if (estado === 'pagada')   { lista[idx].estado = 'pagada';   lista[idx].vendida = true;  }
+        else if (estado === 'cancelada') { lista[idx].estado = 'cancelada'; lista[idx].vendida = false; lista[idx].comisionPagada = false; }
+        else                       { lista[idx].estado = 'pendiente'; lista[idx].vendida = false; }
+      }
 
       await guardarActividad(lista);
+      return res.json({ ok: true, evento: lista[idx] });
+    }
+
+    if (req.method === 'DELETE') {
+      if (req.headers.authorization !== ADMIN_KEY) return res.status(401).json({ error: 'Sin autorización' });
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const { id } = body;
+      if (!id) return res.status(400).json({ error: 'Falta id' });
+      const lista = await leerActividad();
+      const filtered = lista.filter(e => String(e.id) !== String(id));
+      if (filtered.length === lista.length) return res.status(404).json({ error: 'No encontrado' });
+      await guardarActividad(filtered);
       return res.json({ ok: true });
     }
 
