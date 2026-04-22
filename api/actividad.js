@@ -47,8 +47,10 @@ module.exports = async function handler(req, res) {
         precioNum = parseInt(String(precio || '').replace(/[^0-9]/g, ''), 10) || 0;
       }
 
-      const precioTarjeta       = precioNum;
-      const precioTransferencia = precioNum > 0 ? Math.round(precioNum * 0.8) : 0;
+      // Precio base (lo que ingresa el admin) = precio transferencia.
+      // Tarjeta tiene 25% de recargo. Comisión vendedor = 20% del precio transferencia.
+      const precioTransferencia = precioNum;
+      const precioTarjeta       = precioNum > 0 ? Math.round(precioNum * 1.25) : 0;
       const comisionVendedor    = precioTransferencia > 0 ? Math.round(precioTransferencia * 0.20) : 0;
 
       let vendedorNombre = null;
