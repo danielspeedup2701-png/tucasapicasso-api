@@ -14,9 +14,12 @@ module.exports = async function handler(req, res) {
       telefono, mail, referido
     } = req.body;
 
-    if (!producto || !precio || !nombre || !apellido || !mail) {
-      return res.status(400).json({ error: 'Faltan datos obligatorios' });
+    if (!producto || !precio || !nombre) {
+      return res.status(400).json({ error: 'Faltan datos obligatorios (producto, precio, nombre)' });
     }
+    // Defaults para campos opcionales — MP acepta comprador con datos mínimos
+    const apellidoSafe = apellido || '.';
+    const mailSafe     = mail     || 'pedido@tucasapicasso.com.ar';
 
     const precioNum   = parseFloat(precio);
     const cantidadNum = parseInt(cantidad) || 1;
@@ -51,8 +54,8 @@ module.exports = async function handler(req, res) {
       items: mpItems,
       payer: {
         name: nombre,
-        surname: apellido,
-        email: mail,
+        surname: apellidoSafe,
+        email: mailSafe,
         phone: {
           area_code: '54',
           number: telefono || ''
@@ -70,7 +73,7 @@ module.exports = async function handler(req, res) {
         }),
         payer: {
           first_name: nombre,
-          last_name: apellido,
+          last_name: apellidoSafe,
           phone: {
             area_code: '54',
             number: telefono || ''

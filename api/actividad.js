@@ -38,7 +38,8 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const { producto, precio, ref, compradorNombre, compradorWhatsapp, items, metodoPago } = body;
+      const { producto, precio, ref, compradorNombre, compradorWhatsapp, items, metodoPago,
+              totalCostoA, totalComision, totalGananciaEmpresa } = body;
 
       let precioNum = 0;
       if (items && items.length > 0) {
@@ -47,11 +48,18 @@ module.exports = async function handler(req, res) {
         precioNum = parseInt(String(precio || '').replace(/[^0-9]/g, ''), 10) || 0;
       }
 
-      // Precio base (lo que ingresa el admin) = precio transferencia (con 25% de descuento).
-      // Tarjeta = precio lista (base * 1.25). Comisión vendedor = 20% del precio transferencia.
-      const precioTransferencia = precioNum;
-      const precioTarjeta       = precioNum > 0 ? Math.round(precioNum * 1.25) : 0;
-      const comisionVendedor    = precioTransferencia > 0 ? Math.round(precioTransferencia * 0.20) : 0;
+      // Modelo A→E: si los items vienen enriquecidos (con costoA/publicoC/tarjetaD), usarlos.
+      // Si no, fallback al modelo viejo (precioNum = transferencia).
+      let precioTransferencia, precioTarjeta, comisionVendedor;
+      if (items && items.length > 0 && items[0].publicoC !== undefined) {
+        precioTransferencia = items.reduce((s, i) => s + (parseInt(i.publicoC) || 0) * (parseInt(i.qty) || 1), 0);
+        precioTarjeta       = items.reduce((s, i) => s + (parseInt(i.tarjetaD) || 0) * (parseInt(i.qty) || 1), 0);
+        comisionVendedor    = parseInt(totalComision) || items.reduce((s, i) => s + (parseInt(i.comisionTotal) || 0), 0);
+      } else {
+        precioTransferencia = precioNum;
+        precioTarjeta       = precioNum > 0 ? Math.round(precioNum * 1.25) : 0;
+        comisionVendedor    = precioTransferencia > 0 ? Math.round(precioTransferencia * 0.20) : 0;
+      }
 
       let vendedorNombre = null;
       let vendedorWhatsapp = null;
@@ -74,6 +82,10 @@ module.exports = async function handler(req, res) {
         precioTarjeta,
         precioTransferencia,
         comisionVendedor,
+        // Modelo A→E (nuevos campos para visibilidad interna del admin)
+        totalCostoA: parseInt(totalCostoA) || 0,
+        totalComision: parseInt(totalComision) || comisionVendedor || 0,
+        totalGananciaEmpresa: parseInt(totalGananciaEmpresa) || 0,
         metodoPago: metodoPago || null,
         compradorNombre: compradorNombre || '',
         compradorWhatsapp: compradorWhatsapp || '',
